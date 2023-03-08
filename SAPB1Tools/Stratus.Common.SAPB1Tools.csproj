@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Ochiba Business Solutions Ltd</Authors>
+    <Product>Stratus</Product>
+    <Copyright>Copyright ©2021 Ochiba Business Solutions. All Rights Reserved.</Copyright>
+    <PackageProjectUrl>https://dev.azure.com/OchibaDevelopment/Stratus Cloud</PackageProjectUrl>
+    <RepositoryUrl>https://pkgs.dev.azure.com/OchibaDevelopment/2fd5b5e8-bd6d-4deb-8e27-083f27282e4e/_packaging/StratusPackages/nuget/v3/index.json</RepositoryUrl>
+    <PackageTags>stratus,data,types</PackageTags>
+    <PackageId>Stratus.Common.SAPB1Tools</PackageId>
+    <Version>1.0.1</Version>
+    <AssemblyName>Stratus.Common.SAPB1Tools</AssemblyName>
+    <RootNamespace>Stratus.Common.SAPB1Tools</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="ServiceLayer\UDOPayloads.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
+    <PackageReference Include="MimeKit" Version="2.9.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ServiceLayer\Models\" />
+  </ItemGroup>
+
+</Project>

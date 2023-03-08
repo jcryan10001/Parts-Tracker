@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazor3D" Version="0.1.24" />
+    <PackageReference Include="PetaPoco.Compiled" Version="6.0.532" />
+    <PackageReference Include="Syncfusion.Blazor" Version="20.4.0.41" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\assets - Copy\" />
+    <Folder Include="wwwroot\NewFolder\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAPB1Tools\Stratus.Common.SAPB1Tools.csproj" />
+  </ItemGroup>
+
+</Project>

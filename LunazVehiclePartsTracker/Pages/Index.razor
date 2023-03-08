@@ -1,0 +1,2340 @@
+﻿@page "/"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager uriHelper;
+@using System.Threading;
+@using Blazor3D.Enums
+@using Blazor3D.Events
+@using Blazor3D.Lights
+@using Blazor3D.Maths
+@using LunazVehiclePartsTracker.Data
+@using System;
+@using System.Collections.Generic;
+@using System.Linq;
+@using System.Threading.Tasks;
+@using Microsoft.AspNetCore.Mvc;
+@using Newtonsoft.Json
+@using Syncfusion.Blazor
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Navigations
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.SplitButtons
+@using Syncfusion.Blazor.ProgressBar
+@inject SfDialogService DialogService
+@using Blazor3D.Viewers;
+@using Blazor3D.Settings;
+@using Blazor3D.Scenes;
+@using System.Text
+@using System.Net.Http.Json
+
+
+
+<PageTitle>Lunaz Parts Tracker</PageTitle>
+
+<div id="mainLayer" hidden="@MainLayerVisible">
+    <div >
+        <div class="float-start">
+
+    <table style="line-height:30px">
+        <tbody>
+
+        <tr>
+            <td><label>User</label></td>
+            <td><Syncfusion.Blazor.Inputs.SfTextBox Value="@_user" Readonly="true" ID="tb1"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+            </tr>
+
+
+            <tr>
+            <td>
+                <label>Project</label>
+            </td>
+            <td>
+                <SfAutoComplete TValue="string" TItem="Projects" @bind-Value="@AutoCProject" DataSource="@projects">
+                    <AutoCompleteEvents TItem="Projects" TValue="string" ></AutoCompleteEvents>
+                    <AutoCompleteFieldSettings Text=@nameof(Projects.ID) Value=@nameof(Projects.ID) />
+        </SfAutoComplete></td>
+                <td style="margin-left:10px;"><Syncfusion.Blazor.Buttons.SfButton OnClick="Loader" Content="Load Project"></Syncfusion.Blazor.Buttons.SfButton></td>
+                <td><label style="margin-left:90px;">Description</label></td>
+            <td><Syncfusion.Blazor.Inputs.SfTextBox Value="@_description" Readonly="true" ID="tb4"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+        </tr>
+         
+        <tr>
+            <td><label>Customer</label></td>
+            <td><Syncfusion.Blazor.Inputs.SfTextBox Value="@_customer" Readonly="true" ID="tb3"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+
+        </tr>
+
+        </tbody>
+    </table>
+     </div>
+@*    <div class="float-end" id="dreamDiv" style="width:841px;height:365px;margin-right: -1px;"> 
+           
+            <Viewer @ref="View3D1" Scene=scene />
+            </div>*@
+
+    </div>
+    <div id="t1"></div>
+
+
+    <div class="container1" id="target1">
+        <header style="background:#ffb166;height:48px;font-size:25px;position:absolute;width: 230px;z-index: 2;margin-top: 89px;border-radius: 2px;">
+            Sections
+        </header>
+<div class="tree">
+            
+       <SfTreeView TValue="Sections" @ref="tree" @bind-SelectedNodes="@SelectedSection"  AllowMultiSelection="false" onclick="@onTreeNodeSelect">
+            <TreeViewFieldsSettings DataSource = "@sections" Id=@nameof(Sections.ID) Text=@nameof(Sections.Description)  Expanded="Expanded"></TreeViewFieldsSettings>
+        </SfTreeView>
+</div>
+ <div class="grid">
+            <SfGrid DataSource="@partsLive" @ref="Grid" TValue="Parts" AllowSorting="true" AllowFiltering="true" Toolbar="@Toolbaritems" AllowPaging="true">
+            <GridEditSettings AllowAdding="true" AllowDeleting="true" AllowEditing="true" Mode="EditMode.Normal">
+                <HeaderTemplate>
+                    @{
+                        var text = (context as Parts);
+                                                                                                    <div>@text.AssyRef</div>
+                    }
+                </HeaderTemplate>
+
+            </GridEditSettings>
+                 <GridSortSettings>
+        <GridSortColumns>
+                        <GridSortColumn Field="@nameof(Parts.PartNo)" Direction="SortDirection.Ascending"></GridSortColumn>
+        </GridSortColumns>
+    </GridSortSettings>
+                <GridEvents RowDeselected="MainGridRowDeselect" RowDataBound="RowBound" OnActionBegin="OnActionBegin" RowSelected="RowSelectHandler" OnToolbarClick="ToolbarClickHandler" QueryCellInfo="QueryCellInfoHandler" OnActionComplete="ActionComplete" TValue="Parts"></GridEvents>
+                <GridPageSettings PageCount="5"></GridPageSettings>
+                <GridColumns>
+                <GridColumn HeaderText="Parts"  TextAlign="TextAlign.Center">
+                   
+                <GridColumns>
+
+                            <GridColumn Field=@nameof(Parts.AssyRef) ValidationRules="@(new ValidationRules{ Required=true})" EditType="EditType.DropDownEdit"  AllowEditing="false"  HeaderText="Assy Ref" TextAlign="TextAlign.Left" Width="120">
+                            <EditTemplate>
+                                @{
+                                    var part = (context as Parts);
+                                    var PSI = part.AssyRef;
+                                                                                <SfDropDownList ID="AssyRef" @bind-Value="@((context as Parts).AssyRef)" TItem="string"   Placeholder="@PSI" TValue="string" PopupHeight="230px"  DataSource="@assyRefHAsh">
+                                                                                                                    <DropDownListEvents TItem="string" TValue="string" />
+                                                                                                                </SfDropDownList>
+
+                                }
+                        </EditTemplate>
+                    </GridColumn>
+                <GridColumn Field=@nameof(Parts.PartNo) IsPrimaryKey="true"  AllowAdding="false"  AllowEditing="false" HeaderText="Part No." TextAlign="TextAlign.Left" Width="150"></GridColumn>
+                <GridColumn Field=@nameof(Parts.Description) ValidationRules="@(new ValidationRules{ Required= true })" EditType="EditType.DefaultEdit"  HeaderText="Description" TextAlign="TextAlign.Left" Width="130"></GridColumn>
+                <GridColumn Field=@nameof(Parts.Quantity ) EditType="EditType.NumericEdit"  HeaderText="Quantity" TextAlign="TextAlign.Left"  Width="140">
+                    <EditTemplate>
+                                    <Syncfusion.Blazor.Inputs.SfNumericTextBox @key="@((context as Parts).Quantity)" TValue="int" Decimals="0"  Width="120px"
+                                                                               @bind-Value="@((context as Parts).Quantity)"  Min="1"
+                                                                                ValidateDecimalOnType="true"></Syncfusion.Blazor.Inputs.SfNumericTextBox>
+                    </EditTemplate>
+                </GridColumn>
+
+                <GridColumn Field=@nameof(Parts.Condition) HeaderText="Condition" TextAlign="TextAlign.Left" Width="150">
+                    <Template>
+                                @{
+                                    var part = (context as Parts);
+                                    var con = part.Condition;
+                                                                                                        <div>@con</div>
+
+                        }
+                    </Template>
+                    <EditTemplate>
+                                @{
+                                    var part = (context as Parts);
+                                    var con = part.Condition;
+                                                                                                <SfDropDownList @bind-Value="@((context as Parts).Condition)" TItem="string" Placeholder="@con" TValue="string" PopupHeight="230px" DataSource="@conditonsHash">
+                                                                                                                    <DropDownListEvents TItem="string" TValue="string" />
+
+                                                                                                                </SfDropDownList>
+
+                                }
+                    </EditTemplate>
+                </GridColumn>
+                <GridColumn Field=@nameof(Parts.Fixing) AllowEditing="true" HeaderText="Fixing" TextAlign="TextAlign.Left" Width="150">
+                </GridColumn>
+                <GridColumn Field=@nameof(Parts.DryFit) HeaderText="Dry Fit" TextAlign="TextAlign.Left" Width="120">
+                </GridColumn>
+                <GridColumn Field=@nameof(Parts.Weight) HeaderText="Weight" TextAlign="TextAlign.Left" Width="120">
+                </GridColumn>
+                   <GridColumn Field=@nameof(Parts.StorageBox)  HeaderText="Storage Box" TextAlign="TextAlign.Left" Width="120">
+                    <Template>
+                        @{
+                            var part = (context as Parts);
+                                    var strb = part.StorageBox;
+                                                                                                        <div >@strb</div>
+
+                        }
+                    </Template>
+                    <EditTemplate>
+                                @{
+                                    var part = (context as Parts);
+                                    var strb = part.StorageBox;
+                                                                                        <SfDropDownList @bind-Value="@((context as Parts).StorageBox)" TItem="string" TValue="string"   PopupHeight="230px" @ref="DropDownObj" Placeholder="@strBoxString" DataSource="@storageboxHash">
+                                                            <DropDownListEvents TItem="string" TValue="string" />
+                                                            <DropDownListTemplates TItem="string">
+                                                                                                                        <FooterTemplate>
+                                                           <SfButton OnClick="@((args)=>ShowAddStorageDialog(args,part))">Add Storage</SfButton>
+                                                                                                                        </FooterTemplate>
+                                                                  </DropDownListTemplates>
+
+                                                      </SfDropDownList>
+
+                                }
+                    </EditTemplate>
+                </GridColumn>
+                
+                </GridColumns>
+                </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+</div>
+ <div style="text-align: -webkit-right;"><Syncfusion.Blazor.Buttons.SfButton OnClick="SaveChangesDialogclicked" Content="Save Changes"></Syncfusion.Blazor.Buttons.SfButton></div>
+   @* <div style="text-align: -webkit-right;"><Syncfusion.Blazor.Buttons.SfButton OnClick="LogOut" Content="Logout"></Syncfusion.Blazor.Buttons.SfButton></div>*@
+</div>
+    <SfDialog @ref="SaveChangesDialog" Width="250px" Visible="false" ShowCloseIcon="true" IsModal="true">
+    <DialogEvents Closed="Closed"></DialogEvents>
+    <DialogTemplates>
+        @*Here you can customize the Header and Content of delete confirmation dialog*@
+        <Header>Are you sure?</Header>
+       @* <Content>@DeleteMessage</Content>*@
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton OnClick="@MainOkClick" Content="OK" IsPrimary="true"></DialogButton>
+        <DialogButton OnClick="@MainCancelClick" Content="Cancel"></DialogButton>
+    </DialogButtons>
+</SfDialog>
+
+    <SfDialog @ref="DeleteDialog" Width="250px" Visible="false" ShowCloseIcon="true" IsModal="true">
+    <DialogEvents Closed="Closed"></DialogEvents>
+    <DialogTemplates>
+        @*Here you can customize the Header and Content of delete confirmation dialog*@
+        <Header> Delete Record</Header>
+        <Content>@DeleteMessage</Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton OnClick="@OkClick" Content="OK" IsPrimary="true"></DialogButton>
+        <DialogButton OnClick="@CancelClick" Content="Cancel"></DialogButton>
+    </DialogButtons>
+</SfDialog>
+
+
+<SfDialog ID="storageDialog" IsModal="true"  Target="#target" Width="500px" ShowCloseIcon="true" @bind-Visible="StorageBoxVisibility">
+    <DialogTemplates>
+        <Header> Add Storage Box? </Header>
+        <Content>
+            <table>
+                <tbody>
+                    @{
+                        if (storageError == true)
+                        {
+                                                            <tr>
+                                                                <td><label style="color:red;" id="storageIdError">Storage box already exist!</label></td>
+                                                            </tr>
+                        }
+                    }
+                    <tr>
+                        <td><label>Storage Box ID</label></td>
+                        <td style="margin-left:30px;"><Syncfusion.Blazor.Inputs.SfTextBox Type="Syncfusion.Blazor.Inputs.InputType.Text" ValidationRules="@(new ValidationRules{ Required=true})" @oninput="@((e) => { CvStbID=(string)e.Value;})"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+
+                    </tr>
+                    <tr>
+                        <td><label>Description</label></td>
+                        <td style="margin-left:30px;"><Syncfusion.Blazor.Inputs.SfTextBox Type="Syncfusion.Blazor.Inputs.InputType.Text" @oninput="@((e) => { CvStbDesc=(string)e.Value;})"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+                    </tr>
+                </tbody>
+            </table>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton IsPrimary="true" Content="Create" OnClick="@OnStorageAdd" />
+        <DialogButton IsPrimary="true" Content="Cancel" OnClick="@CloseStorageDialog" />
+    </DialogButtons>
+</SfDialog>
+    @*<SfDialog @ref="LoginDialog" Width="400px" Height="621px" Visible="@loginDialogVisible" IsModal="true">
+        <DialogTemplates>
+            <Header>Login</Header>
+            <Content>
+                <table style="margin:auto">
+                    <tbody>
+                        <tr>
+                            <td><Syncfusion.Blazor.Inputs.SfTextBox CssClass="text-custom2"  ID="Username" @bind-Value="@loginUser" Placeholder="Username" FloatLabelType="Syncfusion.Blazor.Inputs.FloatLabelType.Auto"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+                        </tr>
+                        <tr><td><br /></td></tr>
+                        <tr>
+                            <td><Syncfusion.Blazor.Inputs.SfTextBox CssClass="text-custom2" ID="Password" @bind-Value="@loginPassword" Placeholder="Password" FloatLabelType="Syncfusion.Blazor.Inputs.FloatLabelType.Auto" Type="Syncfusion.Blazor.Inputs.InputType.Password"></Syncfusion.Blazor.Inputs.SfTextBox></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton OnClick="@Login" CssClass="e-custombtn" Content="Login" IsPrimary="true"></DialogButton>
+        </DialogButtons>
+    </SfDialog>*@
+<SfDialog ID="storageGridDialog" EnableResize="true" IsModal="true" AllowDragging="true" ShowCloseIcon="true" Target="t1" @bind-Visible="StorageGridVisibility">
+    <DialogEvents Closed="@StorageGridDialogClosed" ></DialogEvents>
+        <DialogTemplates>
+            <Header>Storage Boxes </Header>
+            <Content>
+            <div>
+                <table>
+                    <tr>
+                          <td>  <SfDropDownList  TItem="string" TValue="string" PopupHeight="230px" @ref="StorageGridDropDown" Placeholder="Select Storage Box" DataSource="@storageboxHash">
+                                <DropDownListEvents TItem="string" TValue="string" />
+                                <DropDownListTemplates TItem="string">
+                                </DropDownListTemplates>
+                            </SfDropDownList></td>
+                    
+               <td style="margin-left:50px;"> <Syncfusion.Blazor.Buttons.SfButton OnClick="StorageGridDialogFilter" Content="Go"></Syncfusion.Blazor.Buttons.SfButton></td>
+                </tr>
+                </table>
+            </div>
+           
+<div >
+            <SfGrid DataSource="@partsStorageGrid" @ref="DialogGrid" TValue="Parts" AllowFiltering="true" AllowSorting="true" AllowPaging="true">
+                    <GridEvents  OnActionComplete="ActionComplete2" TValue="Parts"></GridEvents>
+            <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="true"  Mode="EditMode.Normal">
+                <HeaderTemplate>
+                    @{
+                        var text = (context as Parts);
+                                                                                                    <div>@text.AssyRef</div>
+                    }
+                </HeaderTemplate>
+
+            </GridEditSettings>
+                 <GridSortSettings>
+        <GridSortColumns>
+                        <GridSortColumn Field="@nameof(Parts.PartNo)" Direction="SortDirection.Ascending"></GridSortColumn>
+        </GridSortColumns>
+    </GridSortSettings>
+                
+                <GridColumns>
+                <GridColumn HeaderText="Parts"  TextAlign="TextAlign.Center">
+                   
+                <GridColumns>
+
+                 <GridColumn Field=@nameof(Parts.AssyRef)   AllowEditing="false"  HeaderText="Assy Ref" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                <GridColumn Field=@nameof(Parts.PartNo) IsPrimaryKey="true"  AllowAdding="false"  AllowEditing="false" HeaderText="Part No." TextAlign="TextAlign.Left" Width="150"></GridColumn>
+                                <GridColumn Field=@nameof(Parts.Description) AllowEditing="false"  HeaderText="Description" TextAlign="TextAlign.Left" Width="130"></GridColumn>
+                                <GridColumn Field=@nameof(Parts.Quantity ) AllowEditing="false" HeaderText="Quantity" TextAlign="TextAlign.Left" Width="140"></GridColumn>
+
+                <GridColumn Field=@nameof(Parts.Condition) AllowEditing="false" HeaderText="Condition" TextAlign="TextAlign.Left" Width="150"></GridColumn>
+                <GridColumn Field=@nameof(Parts.Fixing) AllowEditing="false" HeaderText="Fixing" TextAlign="TextAlign.Left" Width="150">
+                </GridColumn>
+                <GridColumn Field=@nameof(Parts.DryFit) AllowEditing="false" HeaderText="Dry Fit" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                <GridColumn Field=@nameof(Parts.Weight) AllowEditing="false" HeaderText="Weight" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                 <GridColumn Field=@nameof(Parts.StorageBox) AllowEditing="true" EditType="EditType.DropDownEdit" HeaderText="Storage Box" TextAlign="TextAlign.Left" Width="120">
+                    <EditTemplate>
+                                @{
+                                    var part = (context as Parts);
+                                    var strb = part.StorageBox;
+                                                                                        <SfDropDownList @bind-Value="@((context as Parts).StorageBox)" TItem="string" TValue="string"   PopupHeight="230px" @ref="DropDownObj" Placeholder="@strBoxString" DataSource="@storageboxHash">
+                                                            <DropDownListEvents TItem="string" TValue="string" />
+                                                            <DropDownListTemplates TItem="string">
+                                                                                                                        <FooterTemplate>
+                                                           <SfButton OnClick="@((args)=>ShowAddStorageDialog(args,part))">Add Storage</SfButton>
+                                                                                                                        </FooterTemplate>
+                                                                  </DropDownListTemplates>
+
+                                                      </SfDropDownList>
+
+                                }
+                    </EditTemplate></GridColumn>
+                                <GridColumn Field=@nameof(Parts.SectionID) AllowEditing="false" HeaderText="Section ID" TextAlign="TextAlign.Left" Width="120"> </GridColumn>
+                
+                </GridColumns>
+                </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+            </Content>
+        </DialogTemplates>
+    <DialogPositionData  Y="120" />
+    </SfDialog>
+
+<SfDialog ID="ExperimentalDialog" EnableResize="true"  ResizeHandles="@dialogResizeDirections" Width="65%" MinHeight="600" AllowDragging="true" ShowCloseIcon="true" Visible="false">
+    <DialogEvents ></DialogEvents>
+    <DialogTemplates>
+        <Header>Experimental Dialog</Header>
+        <Content>
+         <table style="width: 100%;position: relative;text-align: center;">
+           <tr>
+               <td>
+                        <SfProgressBar Type="ProgressType.Circular" ID="CircularSegment1" @ref="circular1" 
+                           Height="350px" Width="200px" TrackThickness="15" ProgressThickness="15"
+                           Value="@circular1Val" Minimum="0" Maximum="100" StartAngle="285"
+                           EndAngle="268" SegmentCount="11" GapWidth="20"
+                           CornerRadius="CornerType.Round"
+                           ProgressColor="@progressColor"
+                           TrackColor="Orange">
+                <ProgressBarAnimation Enable="true" Duration="100" Delay="0" />
+                            <ProgressBarAnnotations>
+                                <ProgressBarAnnotation>
+                                    <ContentTemplate>
+                                        <div>@circular1Span</div>
+                                    </ContentTemplate>
+                                </ProgressBarAnnotation>
+                            </ProgressBarAnnotations>
+            </SfProgressBar>
+              </td>
+             <td>
+                 <table>
+                     <tr>                
+                         <td>
+                            <SfProgressBar Type="ProgressType.Linear" ID="LinearSegment" @ref="linear1" IsActive="false"
+                                           Height="30" Width="500" SegmentCount="2" GapWidth="5" EnableRtl="false"
+                                           Value="@linear1Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                                           TrackThickness="15"
+                                           ProgressThickness="15"
+                                           ProgressColor="@progressColor"
+                                           TrackColor="Orange">
+                                        
+                                <ProgressBarAnimation  Enable="true" Duration="2000" Delay="0" />
+                            </SfProgressBar>
+                        </td>
+                     </tr>
+                     <tr>
+                          <td>
+                                <SfProgressBar Type="ProgressType.Linear" ID="LinearSegment2" @ref="linear2"
+                                           Height="30" Width="500" SegmentCount="2" GapWidth="5" EnableRtl="true"
+                                                       Value="@linear2Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                               TrackThickness="15"
+                               ProgressThickness="15"
+                                                   ProgressColor="@progressColor"
+                               TrackColor="Orange">
+                           
+                                <ProgressBarAnimation Enable="true" Duration="2000" Delay="0" />
+                                </SfProgressBar>                        
+                            </td>
+                     </tr>
+                  </table>
+             </td>
+              <td>
+                        <SfProgressBar Type="ProgressType.Circular" ID="CircularSegment2" @ref="circular2"
+                           Height="350px" Width="200px" TrackThickness="15" ProgressThickness="15"
+                           Value="@circular2Val" Minimum="0" Maximum="100" StartAngle="285"
+                           EndAngle="260" SegmentCount="11" GapWidth="20" 
+                           CornerRadius="CornerType.Round" 
+                           ProgressColor="@progressColor"
+                           TrackColor="Orange">
+                <ProgressBarAnimation Enable="true" Duration="100" Delay="0" />
+                <ProgressBarAnnotations>
+                                <ProgressBarAnnotation>
+                                    <ContentTemplate>
+                                        <div>@circular2Span</div>
+                                    </ContentTemplate>
+                                </ProgressBarAnnotation>
+                            </ProgressBarAnnotations>
+            </SfProgressBar>
+              </td>
+              <td>
+                 <table>
+                            <tr>
+                                <td>
+                                    <SfProgressBar Type="ProgressType.Linear" ID="LinearSegment3" @ref="linear3" IsActive="false"
+                                                   Height="30" Width="500" SegmentCount="2" GapWidth="5" EnableRtl="false"
+                                                   Value="@linear3Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                                                   TrackThickness="15"
+                                                   ProgressThickness="15"
+                                                   ProgressColor="@progressColor"
+                                                   TrackColor="Orange">
+
+                                        <ProgressBarAnimation Enable="true" Duration="2000" Delay="0" />
+                                    </SfProgressBar>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <SfProgressBar Type="ProgressType.Linear" ID="LinearSegment4" @ref="linear4"
+                                                   Height="30" Width="500" SegmentCount="2" GapWidth="5" EnableRtl="true"
+                                                   Value="@linear4Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                                                   TrackThickness="15"
+                                                   ProgressThickness="15"
+                                                   ProgressColor="@progressColor"
+                                                   TrackColor="Orange">
+
+                                        <ProgressBarAnimation Enable="true" Duration="2000" Delay="0" />
+                                    </SfProgressBar>
+                                </td>
+                            </tr>
+                        </table>
+              </td>
+              <td>
+                        <SfProgressBar Type="ProgressType.Circular" ID="CircularSegment3" @ref="circular3" ShowProgressValue="true"
+                           Height="350px" Width="200px" TrackThickness="15" ProgressThickness="15"
+                           Value="@circular3Val" Minimum="0" Maximum="100" StartAngle="285"
+                           EndAngle="255" SegmentCount="5" GapWidth="10"
+                           CornerRadius="CornerType.Round"
+                                       ProgressColor="@progressColor"
+                           TrackColor="Orange">
+                <ProgressBarAnimation Enable="true" Duration="2000" Delay="0" />
+            </SfProgressBar>
+              </td>
+            </tr>
+          </table>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton OnClick="@progressBarDialog0" Content="0--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog1" Content="1--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog2" Content="2--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog3" Content="3--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog4" Content="4--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog5" Content="5--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog6" Content="6--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog7" Content="7--" ></DialogButton>
+            <DialogButton OnClick="@progressBarDialog8" Content="8" ></DialogButton>
+        </DialogButtons>
+    <DialogPositionData Y="120" />
+</SfDialog>
+
+<SfDialog ID="TreatmentDialog" EnableResize="true" IsModal="true" AllowDragging="true" ShowCloseIcon="false" Target="t1" @bind-Visible="@treatmentDLG">
+    <DialogEvents Opened="@TreamentDlgOpened"></DialogEvents>
+    <DialogTemplates>
+        <Header>Treatment Grid </Header>
+        <Content>
+            <div>
+                
+                <SfGrid DataSource="@treatedPartsLive" @ref="treatedGrid" Toolbar="@(new List<string>() { "Add", "Edit", "Delete", "Update", "Cancel","Confirm Changes", "Revert Changes" })" TValue="TreatedParts" AllowFiltering="true" AllowSorting="false" AllowRowDragAndDrop="true" AllowPaging="true">
+       <GridSelectionSettings Type="Syncfusion.Blazor.Grids.SelectionType.Multiple"></GridSelectionSettings>
+        <GridSortSettings>
+        <GridSortColumns>
+                        <GridSortColumn Field="" Direction="SortDirection.Ascending"></GridSortColumn>
+        </GridSortColumns>
+        </GridSortSettings>
+                    <GridEvents OnToolbarClick="treatmentToolbarClickHandler" RowDragStarting="@treatmentGridRowDragStart" RowDropped="@treatmentGridRowDragEnd" RowDropping="@treatmentGridRowDrag" RowSelected="@treatmentRowSelectHandler" OnActionBegin="@treatmentOnActionBegin" OnActionComplete="@TreatedGridActionComplete" TValue="TreatedParts"></GridEvents>
+                    <GridEditSettings AllowAdding="true" AllowDeleting="true" AllowEditing="true" Mode="EditMode.Normal" NewRowPosition="NewRowPosition.Bottom"></GridEditSettings>
+                    <GridSortSettings>
+                        <GridSortColumns>
+                            <GridSortColumn Field="@nameof(TreatedParts.Index)" Direction="SortDirection.Descending"></GridSortColumn>
+                        </GridSortColumns>
+                    </GridSortSettings>
+                            <GridColumns>
+
+                                <GridColumn Field=@nameof(TreatedParts.AssyRef) AllowEditing="false" ValidationRules="@(new ValidationRules{ Required=true})" AllowAdding="false" HeaderText="Assy Ref" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.PartNo)  AllowAdding="false" AllowEditing="false" HeaderText="Part No." TextAlign="TextAlign.Left" Width="150"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Description) AllowEditing="false" AllowAdding="false" HeaderText="Description" TextAlign="TextAlign.Left" Width="130"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Quantity ) AllowEditing="false" AllowAdding="false" HeaderText="Quantity" TextAlign="TextAlign.Left" Width="140"></GridColumn>
+
+                                <GridColumn Field=@nameof(TreatedParts.Condition) AllowEditing="false" AllowAdding="false" HeaderText="Condition" TextAlign="TextAlign.Left" Width="150"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Treatment) ValidationRules="@(new ValidationRules{ Required=true})" EditType="EditType.DropDownEdit"  AllowEditing="false"  HeaderText="Treatment" TextAlign="TextAlign.Left" Width="120">
+                                <EditTemplate>
+                                    @{
+                                        var part = (context as TreatedParts);
+                                        var PSI = part.Treatment;
+                                        
+                                                                                    <SfDropDownList ID="Treatment" @bind-Value="@((context as TreatedParts).Treatment)" TItem="string"   Placeholder="@PSI" TValue="string" PopupHeight="230px"  DataSource="@treatmentHash">
+                                                                                                                        <DropDownListEvents TItem="string" TValue="string" />
+                                                                                                                    </SfDropDownList>
+
+                                    }
+                                    </EditTemplate>
+                                </GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.TreatmentDescription) AllowEditing="true" HeaderText="Description" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Qty) AllowEditing="true" ValidationRules="@(new ValidationRules{ Required=true,Min = 1,Max=@getQuantity(this.SelectedData)})" EditType="EditType.NumericEdit" HeaderText="Qty" TextAlign="TextAlign.Left" Width="120"></GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Notes) AllowEditing="true"  HeaderText="Notes" TextAlign="TextAlign.Left" Width="120">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Supplier) AllowEditing="false" HeaderText="Supplier" TextAlign="TextAlign.Left" Width="120"> </GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.PO) AllowEditing="false" HeaderText="PO" TextAlign="TextAlign.Left" Width="120"> </GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Status) AllowEditing="false" ValidationRules="@(new ValidationRules{ Required=true})" EditType="EditType.DropDownEdit" HeaderText="Status" TextAlign="TextAlign.Left" Width="120">
+                                    <EditTemplate>
+                                        @{
+                                            var part = (context as TreatedParts);
+                                            var con = part.Status;
+                                                                <SfDropDownList @bind-Value="@((context as TreatedParts).Status)" TItem="string" Placeholder="@con" TValue="string" PopupHeight="230px" DataSource="@statusHash">
+                                                                    <DropDownListEvents TItem="string" TValue="string" />
+
+                                                                </SfDropDownList>
+
+                                        }
+                                    </EditTemplate>
+                                </GridColumn>
+                                <GridColumn Field=@nameof(TreatedParts.Index)  IsPrimaryKey="true" AllowEditing="false" AllowAdding="false" HeaderText="Index" TextAlign="TextAlign.Left" Width="120"> </GridColumn>
+                            </GridColumns>
+                </SfGrid>
+            </div>
+            @*<div style="width:700px; margin:auto;">
+                <table style="width: 100%;position: relative;text-align: center;">
+                    <tr>
+                        <td>
+                            <SfProgressBar Type="ProgressType.Circular" ID="CircularSegmentT1" @ref="circularT1"
+                                           Height="130px" Width="130px" TrackThickness="15" ProgressThickness="15"
+                                           Value="circularT1Val" Minimum="0" Maximum="100" StartAngle="275"
+                                           EndAngle="275" SegmentCount="0" GapWidth="20"
+                                           CornerRadius="CornerType.Round"
+                                           ProgressColor="@progressColor"
+                                           TrackColor="Orange">
+                                <ProgressBarAnimation Enable="true" Duration="1000" Delay="0" />
+                                <ProgressBarAnnotations>
+                                    <ProgressBarAnnotation>
+                                        <ContentTemplate>
+                                            <div>@circularT1Span</div>
+                                        </ContentTemplate>
+                                    </ProgressBarAnnotation>
+                                </ProgressBarAnnotations>
+                            </SfProgressBar>
+                        </td>
+                        <td>
+                            <table>
+                                <tr>
+                                    <td>
+                                        <SfProgressBar Type="ProgressType.Linear" ID="LinearSegmentT1" @ref="linearT1" IsActive="false"
+                                                       Height="30" Width="200" SegmentCount="0" GapWidth="5" EnableRtl="false"
+                                                       Value="linearT1Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                                                       TrackThickness="15"
+                                                       ProgressThickness="15"
+                                                       ProgressColor="@progressColor"
+                                                       TrackColor="Orange">
+
+                                            <ProgressBarAnimation Enable="true" Duration="1000" Delay="0" />
+                                        </SfProgressBar>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                        <td>
+                            <SfProgressBar Type="ProgressType.Circular" ID="CircularSegmentT2" @ref="circularT2"
+                                           Height="130px" Width="130px" TrackThickness="15" ProgressThickness="15"
+                                           Value="circularT2Val" Minimum="0" Maximum="100" StartAngle="275"
+                                           EndAngle="275" SegmentCount="0" GapWidth="20"
+                                           CornerRadius="CornerType.Round"
+                                           ProgressColor="@progressColor"
+                                           TrackColor="Orange">
+                                <ProgressBarAnimation Enable="true" Duration="100" Delay="0" />
+                                <ProgressBarAnnotations>
+                                    <ProgressBarAnnotation>
+                                        <ContentTemplate>
+                                            <div style="font-size:60px;color: @progressColor">@circularT2Span</div>
+                                        </ContentTemplate>
+                                    </ProgressBarAnnotation>
+                                </ProgressBarAnnotations>
+                            </SfProgressBar>
+                        </td>
+                        <td>
+                            <table>
+                                <tr>
+                                    <td>
+                                        <SfProgressBar Type="ProgressType.Linear" ID="LinearSegmentT2" @ref="linearT2" IsActive="false"
+                                                       Height="30" Width="200" SegmentCount="0" GapWidth="5" EnableRtl="false"
+                                                       Value="linearT2Val" Minimum="0" Maximum="100" CornerRadius="CornerType.Square"
+                                                       TrackThickness="15"
+                                                       ProgressThickness="15"
+                                                       ProgressColor="@progressColor"
+                                                       TrackColor="Orange">
+
+                                            <ProgressBarAnimation Enable="true" Duration="2000" Delay="0" />
+                                        </SfProgressBar>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                        <td>
+                            <SfProgressBar Type="ProgressType.Circular" ID="CircularSegmentT3" @ref="circularT3" 
+                                           Height="130px" Width="130px" TrackThickness="15" ProgressThickness="15"
+                                           Value="circularT3Val" Minimum="0" Maximum="100" StartAngle="275"
+                                           EndAngle="275" SegmentCount="0" GapWidth="10"
+                                           CornerRadius="CornerType.Round"
+                                           ProgressColor="@progressColor"
+                                           TrackColor="Orange">
+                                <ProgressBarAnimation Enable="true" Duration="1000" Delay="0" />
+                                                                <ProgressBarAnnotations>
+                                    <ProgressBarAnnotation>
+                                        <ContentTemplate>
+                                            <div style="font-size:60px;color: @progressColor">@circularT3Span</div>
+                                        </ContentTemplate>
+                                    </ProgressBarAnnotation>
+                                </ProgressBarAnnotations>
+                            </SfProgressBar>
+                        </td>
+                    </tr>
+                </table>
+            </div>*@
+        </Content>
+    </DialogTemplates>
+    <DialogPositionData Y="120" />
+</SfDialog>
+
+@code {
+    // these are variables we need to announcebefore page load
+    //private if only used byt this page else leave everything public
+    //
+    [Parameter]
+    public List<Sections> sections { get; set; }
+    [Parameter]
+    public bool storageError { get; set; } = false;
+
+    [Parameter]
+    public List<Sections> sections2 { get; set; }
+
+    [Parameter]
+    public List<Parts> parts { get; set; }
+
+    [Parameter]
+    public List<Parts> partsStorageGrid { get; set; }
+
+
+
+    [Parameter]
+    public List<TreatedParts> treatedPartsLive { get; set; }
+
+    [Parameter]
+    public List<Parts> partsLive { get; set; }
+
+    //[Parameter]
+    //public List<Projects> projects { get; set; }
+
+    [Parameter]
+    public List<AssyRef> assyRef { get; set; }
+
+    [Parameter]
+    public List<Condition> condition { get; set; }
+
+    [Parameter]
+    public List<StorageBoxes> storageBoxes { get; set; }
+
+    [Parameter]
+    public string _user { get; set; }
+
+    [Parameter]
+    public string AutoCProject { get; set; }
+
+    [Parameter]
+    public string _customer { get; set; }
+
+    [Parameter]
+    public string _description { get; set; }
+
+    SfGrid<Parts> Grid { get; set; }
+
+    SfGrid<TreatedParts> treatedGrid { get; set; }
+
+    SfDropDownList<string[], StorageBoxes> storageBox;
+    SfDropDownList<string,string> StorageGridDropDown;
+    public List<TreatedParts> BeforeTreatedRecords = new List<TreatedParts> {};
+    public List<Parts> oldSessionParts = new List<Parts> { };
+    public List<TreatedParts> oldSessionTreatedParts = new List<TreatedParts> { };
+
+    public List<Projects> projects = new List<Projects>()
+    {
+        new Projects(){ ID= "LZ026", Description= "first", Customer= "1" },
+        new Projects(){ ID= "P2", Description= "second", Customer= "2" },
+        new Projects(){ ID= "P3", Description= "third", Customer= "3" },
+
+    };
+
+    private ResizeDirection[] dialogResizeDirections { get; set; } = new ResizeDirection[] { ResizeDirection.All };
+    //Treatment Dialog visuals
+    public SfProgressBar linearT1;
+    public int linearT1Val = 0;
+    public SfProgressBar linearT2;
+    public int linearT2Val = 0;
+    public SfProgressBar circularT1;
+    public string circularT1Span;
+    public int circularT1Val = 0;
+    public SfProgressBar circularT2;
+    public string circularT2Span;
+    public int circularT2Val = 0;
+    public SfProgressBar circularT3;
+    public string circularT3Span;
+    public int circularT3Val = 0;
+    //Experimental Dialog visuals
+    public static string progressColor = "#0d6efd";
+    public SfProgressBar linear1;
+    public int linear1Val = 0;
+    public SfProgressBar linear2;
+    public int linear2Val = 0;
+    public SfProgressBar linear3;
+    public int linear3Val = 0;
+    public SfProgressBar linear4;
+    public int linear4Val = 0;
+    public SfProgressBar circular1;
+    public string circular1Span = "";
+    public int circular1Val = 0;
+    public SfProgressBar circular2;
+    public string circular2Span = "";
+    public int circular2Val = 0;
+    public double circular2Val_2ndary = 0;
+    public SfProgressBar circular3;
+    public int circular3Val = 0;
+    private List<Object> Toolbaritems = new List<Object>() { "Add", "Edit", "Delete", "Update", "Cancel", new ItemModel() { Text = "Treatment", TooltipText = "Treatment", Id = "Treatment", Disabled = true }, new ItemModel() { Text = "Storage Boxes", TooltipText = "Storage Boxes", Id = "Storage Boxes", Disabled = true }, new ItemModel() { Text = "Breakdown", TooltipText = "Breakdown", Id = "Breakdown", PrefixIcon = "e-swapup", Disabled = true }, new ItemModel() { Text = "Confirm Breakdown", TooltipText = "Confirm Breakdown", Id = "Confirm Breakdown", PrefixIcon = "e-check", Disabled = true }, new ItemModel() { Text = "Cancel Breakdown", TooltipText = "Cancel Breakdown", Id = "Cancel Breakdown", PrefixIcon = "e-cancel", Disabled = true } };
+    private List<Object> StartToolbaritems = new List<Object>() { };
+    SfGrid<Parts> DialogGrid { get; set; }
+    public bool StorageBoxVisibility { get; set; } = false;
+    public bool treatmentDLG { get; set; } = false;
+    public bool StorageGridVisibility { get; set; } = false;
+    public string selectedSessionID;
+    public SfDropDownList<string, string> DropDownObj ;
+    SfDialog DeleteDialog;
+    SfDialog SaveChangesDialog;
+    public string DeleteRef = "";
+    public string DeleteMessage = "";
+    SfDialog LoginDialog;
+    public Parts PartInBreakDown;
+    public TreatedParts tpart;
+    public bool partIsInBreakdown = false;
+    HashSet<int> partsAddedinBreakdown = new HashSet<int> { };
+    public bool flag = true;
+    public bool tmpstrbox = false;
+    public bool newstrBoxCreated = false;
+    public string lastStrBoxCreated = "";
+    //change this back
+    public bool loginDialogVisible = true;
+    public string loginUser;
+    public string loginPassword;
+    public double selectedIndex;
+    public string strBoxString ="";
+    public bool MainLayerVisible { get; set; } = false;
+    public Parts tmpPart;
+    public Parts SelectedData;
+    public TreatedParts SelectedTreatedData;
+    public double selectedTreatedIndex;
+    public void Closed()
+    {
+        flag = true;
+    }
+    public string[] SelectedSection = new string[] { };
+    public string CvStbID { get; set; }
+    public string CvStbDesc { get; set; }
+    SfTreeView<Sections> tree;
+    public List<TreatedParts> treatedParts = new List<TreatedParts> { };
+    HashSet<int> partNoHash = new HashSet<int> { };
+    HashSet<string> assyRefHAsh = new HashSet<string> { };
+    HashSet<string> conditonsHash = new HashSet<string> { };
+    HashSet<string> storageboxHash = new HashSet<string> { };
+    HashSet<string> treatmentHash = new HashSet<string> {"Black Zinc","Zinc","Black Powder Coat","Body Colour Paint","Chroming","Refurbishment","Other","Sell/Scrap","Rework/Replace" };
+    HashSet<string> statusHash = new HashSet<string> {"Not Set","Ready - Purchase Treatment","Ready - Purchase Replacement","Released","Complete","Next"};
+    public string file = "C:/Users/jai.choudhary/source/repos/LunazVehiclePartsTracker/LunazVehiclePartsTracker/wwwroot/css/images/uploads_files_2792345_Koenigsegg.obj";
+
+
+
+    //await Grid.EnableToolbarItemsAsync(new List<string>() { "Add", "Edit", "Delete", "Update", "Cancel", "Storage Boxes", "Breakdown", "Confirm Breakdown", "Cancel Breakdown" }, false);
+
+
+
+    //this function is triggered after the user enters project name and hits enter
+    public async Task Loader()
+    {
+        //if part is in breakdown mode then let the user know or elese proceed
+        if(partIsInBreakdown == true){
+            await DialogService.AlertAsync("Part Breakdown in Progress!");
+            return;
+        }
+        string Prj = AutoCProject;
+        treatedPartsLive = treatedParts;
+        //turning off/on any of the toolbar items.
+        await Grid.EnableToolbarItemsAsync(new List<string>() { "Storage Boxes"}, true);
+        //await Grid.EnableToolbarItemsAsync(new List<string>() { "Breakdown", "Confirm Breakdown", "Cancel Breakdown" }, false);
+        //we do the initial data load from the controller in a different method so we dont have to wait here and we only proceed once we have the data.
+        List<LoadedProject> result = await getData(Prj);
+        //if there were zero results sent back from the controller then we notify the user and reload the page or else proceed.
+        if (result.Count == 0)
+        {
+            await DialogService.AlertAsync("Project Not Found!");
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        }
+        else
+        {
+            //Data that we get back from the controller is in a root object which we put in a list of sections, reason being we encapsulate the whole entire data under one class so its easier to seperate into their own seperate classes.
+            var SelectedPrj = Prj;
+            sections = result[0].Sections.ToList<Sections>();
+            //Set the section data in the tree and put the part data in the List parts and from this part List we do all the filtering but not touch the main parts List because the main Grid uses partsLive List.
+            setSections(sections);
+            parts = result[0].Parts.ToList<Parts>();
+            foreach (Parts part in parts)
+            {
+                Parts existingPart = part;///parts.Where(p =>p.SectionID == part.SectionID && p.PartNo == part.PartNo).FirstOrDefault();
+                Parts newPart = new Parts
+                        {
+                            AssyRef = existingPart.AssyRef,
+                            SectionID = existingPart.SectionID,
+                            PartNo = existingPart.PartNo,
+                            Description = existingPart.Description,
+                            Quantity = existingPart.Quantity,
+                            Condition = existingPart.Condition,
+                            Fixing = existingPart.Fixing,
+                            DryFit = existingPart.DryFit,
+                            Weight = existingPart.Weight,
+                            StorageBox = existingPart.StorageBox
+                        };
+
+                oldSessionParts.Add(new Parts(newPart));
+                assyRefHAsh.Add(part.AssyRef);
+                conditonsHash.Add(part.Condition);
+                storageboxHash.Add(part.StorageBox);
+                partNoHash.Add(part.PartNo);
+
+            }
+            projects = result[0].Projects.ToList<Projects>();
+            assyRef = result[0].AssyRef.ToList<AssyRef>();
+            condition = result[0].Condition.ToList<Condition>();
+            storageBoxes = result[0].StorageBoxes.ToList<StorageBoxes>();
+            if (projects.Count > 0)
+            {
+                _user = projects.Where(r => r.ID.Contains(SelectedPrj)).Select(r => r.ID).ToArray()[0].ToString();
+                _description = projects.Where(r => r.ID.Contains(SelectedPrj)).Select(r => r.Description).ToArray()[0].ToString();
+                _customer = projects.Where(r => r.ID.Contains(SelectedPrj)).Select(r => r.Customer).ToArray()[0].ToString();
+            }
+        }
+
+    }
+
+    //set the section data in the tree viewer
+    public void setSections(List<Sections> sectionstmp) {
+        sections = sectionstmp;
+    }
+    //
+    public void ProjectSelected(ChangeEventArgs<string, Projects> args)
+    {
+        if (args.Value == null) { }
+        else
+        {
+            var Prj = "";
+            Prj = args.Value.ToString();
+            Loader();
+
+        }
+    }
+    //following 3-4 funtions are to be useful if need to extract the actual value from the list
+    public string GetStorageBox(List<StorageBoxes> parts)
+    {
+        var name = parts[0].ID.ToString();
+        return name;
+    }
+
+    public string GetCondition(List<Condition> conditions)
+    {
+        var name = conditions[0].ID.ToString();
+        return name;
+    }
+
+    public string GetAssyRef(List<AssyRef> assyRef)
+    {
+        var name = assyRef[0].ID.ToString();
+        return name;
+    }
+
+    //here we show the add storage box dialog and set the tmpPart to the part which was clicked to add the storage box and we use it to cross reference this tmpPart
+    // So if we need to make any edits on that part later like for e.g adding a storage box to the list so its helfull to know which item made the click 
+    // as that is not active after the dialog becomes visible so its up to us to handle that.
+    public async Task ShowAddStorageDialog(object args, Parts part)
+    {
+
+        this.StorageBoxVisibility = true;
+        tmpPart = part;
+    }
+
+    public async Task ShowAddTreatmentDialog()
+    {
+
+        treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedData.SectionID && r.PartNo == SelectedData.PartNo).ToList();
+        if (treatmentDLG == true) { 
+            this.treatedGrid.Refresh(); }
+        else
+        {
+            this.treatmentDLG = true;
+        }
+        //this.treatedGrid.Refresh();
+    }
+
+    //to close the add  dtorage dialog box
+    public void CloseStorageDialog(Object args)
+    {this.StorageBoxVisibility = false;}
+
+    //here we come after the user has entered the new storage box ID and description
+    public async Task OnStorageAdd(object args)
+    {
+
+        string id = CvStbID;
+        var desc = CvStbDesc;
+        //first we check that Id component supplied her is not null 
+        if (id == null)
+        {
+            await DialogService.AlertAsync("Storage-box id cannot be empty!");
+        }
+        //here we check if the entered new storage box id is not already present in the global storage box list
+        else if(storageboxHash.Contains(id)){
+            //if it is present then we throw this error message which is done here by setting this following variable true which is binded to a pre-made storage box error dialog
+            storageError = true;
+        }
+        //if everything check out we proceed by adding this item to the dropdown that was clicked and setting its value and adding that same value in the global storage box list,
+        //  So it could selected from any row not just the one that added this storage box.
+        else{
+
+            IEnumerable<string> myStrings = new[] { id };
+            myStrings.Append(id);
+            this.DropDownObj.AddItemsAsync(myStrings);
+            List<Parts> newlist = parts.Where(r => r.SectionID == selectedSessionID).ToList();
+            HashSet<int> sectionPartList = new HashSet<int> { };
+            foreach (Parts part in newlist)
+            {
+                sectionPartList.Add(part.PartNo);
+            }
+            if (sectionPartList.Contains(tmpPart.PartNo))
+            {
+                //this.parts.Where(r => r.PartNo == tmpPart.PartNo && r.SectionID == tmpPart.SectionID && r.Quantity == tmpPart.Quantity).ToList().ForEach(s => s.StorageBox = id);
+                this.partsLive.Where(r => r.PartNo == tmpPart.PartNo && r.SectionID == tmpPart.SectionID).ToList().ForEach(s => s.StorageBox = id);
+                await DialogService.AlertAsync("Storage-box created successfully!");
+                storageboxHash.Add(id);
+                newstrBoxCreated = true;
+                this.StorageBoxVisibility = false;
+                await Grid.Refresh();
+                await Grid.SelectRow(selectedIndex);
+                await Grid.StartEdit();
+
+            }
+            else
+            {
+                partsLive.Where(r => r.PartNo == tmpPart.PartNo && r.SectionID == tmpPart.SectionID).ToList().ForEach(s => s.StorageBox = id);
+                await DialogService.AlertAsync("Storage-box created successfully!");
+                this.StorageBoxVisibility = false;
+                storageboxHash.Add(id);
+                newstrBoxCreated = true;
+            }
+
+            this.DropDownObj.Value = id;
+            this.DropDownObj.Placeholder = id;
+            lastStrBoxCreated = id;
+
+
+        }
+
+    }
+    //once the item selected from the treeview, we land here and filter the part-list from parts and put those matching items to partsLive
+    public async Task onTreeNodeSelect()
+    {
+        if (partIsInBreakdown == true) { await DialogService.AlertAsync("Part is currently in breakdown!"); }
+        else
+        {
+
+            //await Grid.EnableToolbarItemsAsync(new List<string>() { "Add"}, true);
+            selectedSessionID = SelectedSection[0].ToString();
+            List<Parts> filteredParts = parts.Where(r => r.SectionID == selectedSessionID).ToList();
+            partsLive = filteredParts;
+
+        }
+    }
+    //this function talks to controller and checks if the incoming data stream was empty or not.Again we are doing this checking twice as a safeguard and still returning an empty list
+    // to the main function so the we have record of what went wrong(if something does) and error bubbles up and gets handled appropriately instead of breaking the code. 
+    public async Task<List<LoadedProject>> getData(string Prj){
+        List<LoadedProject> result = new List<LoadedProject>();
+        try{
+            Rootobject result1 = await Http.GetFromJsonAsync<Rootobject>("https://localhost:7184/api/Parts/FlatSql/?prj=" + Prj);
+
+            var rj = result1;
+            if (result1.LoadedProjects == null)
+            {
+                return result;
+            }
+            else
+            {
+                foreach (LoadedProject project in rj.LoadedProjects)
+                {
+                    result.Add(project);
+                }
+                return result;
+            }
+        }
+        catch(Exception e){Console.WriteLine(e); return result; }
+
+    }
+    //future use funtion to add a new item to treeview obj
+    void onBtnClick() 
+    { 
+        List<Sections> TreeData = new List<Sections>(); 
+        TreeData.Add(new Sections{ ID = "", Description = "", Parts="" }); 
+
+
+        this.tree.AddNodes(TreeData); 
+    }
+
+    public async Task Cancel() => await Grid.CloseEditAsync();     //Cancel editing action
+
+
+    //this funtion gets triggered when the Add/edit/save/delete basically any of the main grid functions gets triggerd or start.
+    // here we first cancel the syncfusion built in handles for tasks as we have our little ways of doing things.
+    // in each one of the actions we first check what the incoming request type is in args data and then set up the base for the user where to input data and where it will be supplied in already,
+    // then we handle all of those validations(if any) here and send them bubbling up or show a dialog with message to user straight away.
+    // note: here we set the intial data in the performed actions because after this the onactionComplete funtion gets triggered.that is where we do checks again .So see that for reference 
+    public async Task  OnActionBegin(ActionEventArgs<Parts> args)
+    {
+        if (args.RequestType.ToString() == "Delete" && flag)
+        {
+            //Cancel default delete action.
+            args.Cancel = true;
+            if (partIsInBreakdown == true && args.Data == PartInBreakDown) { await DialogService.AlertAsync("Part is in breakdown!"); }
+            else
+            {
+                DeleteRef = "mainGrid";
+                DeleteMessage = "You are about to delete record with Assemly Ref -> " + args.Data.AssyRef + " From Section -> " + args.Data.SectionID;
+                DeleteDialog.Show();
+
+                flag = false;
+            }
+        }
+
+        //this add funtions sets up the intial data like for SectionID and part No. which is unique and needs to be generated after checking all the entries 
+        // from this sections part numbers and then adding one to max number found on the list and ending the beignAdd operation. 
+        // also to be checked like always for if any section has been selected or not.
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Add)
+        {
+            if (selectedSessionID == null)
+            {
+                await DialogService.AlertAsync("No Section Selected");
+                this.Grid.EndEdit();
+
+            }
+            else
+            {
+                int number = 0;
+                List<Parts> newlist = parts.Where(r => r.SectionID == selectedSessionID).ToList();
+                HashSet<int> sectionPartList = new HashSet<int>{};
+                foreach(Parts part in newlist){
+                    sectionPartList.Add(part.PartNo);
+                }
+                if (sectionPartList.Count != 0)
+                {
+                    number = sectionPartList.Max() + 1;
+                }
+                args.Data.PartNo = number;
+                args.Data.SectionID = selectedSessionID;
+                args.Data.Quantity = 1;
+                partNoHash.Add(number);
+            }
+        }
+
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save) { }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.BeginEdit) {
+            if (partIsInBreakdown == true && args.Data.SectionID == PartInBreakDown.SectionID && args.Data.PartNo == PartInBreakDown.PartNo){
+                args.Cancel = true;
+            }
+
+        }
+
+    }
+    // this functions handles the row select event which is triggered when a user selects a row.
+    // we check first weather or not there IS a part in breakdown currently. if there happens to be one then we check if the row that has been selected is the part that is under breakdown or not and add a class to the DOM element.
+    // if it matches we unselect the row selected and if it doesn't then we let the row get sselected as usual.
+    public void RowBound(RowDataBoundEventArgs<Parts> args)
+    {
+        if (PartInBreakDown != null)
+        {
+            if (args.Data.SectionID == PartInBreakDown.SectionID && args.Data.PartNo == PartInBreakDown.PartNo && partIsInBreakdown == true)
+            {
+                args.Row.AddClass(new string[] { "row-in-breakdown" });
+            }
+        }
+    }
+    //*****************************************************************************************************/
+    //here we check if the grid is breakdown mode or not and we enable or disable the toolbar buttons accordingly
+    public async Task RowSelectHandler(RowSelectEventArgs<Parts> Args)
+    {
+
+        await Grid.EnableToolbarItemsAsync(new List<string>() { "Breakdown","Treatment" }, true);
+        if(partIsInBreakdown == true){
+            await Grid.EnableToolbarItemsAsync(new List<string>() { "Breakdown" }, false);
+        }
+        SelectedData = Args.Data;
+        selectedIndex = Args.RowIndex;
+    }
+
+    public async Task MainGridRowDeselect()
+    {
+    }
+
+
+    public async Task treatmentRowSelectHandler(RowSelectEventArgs<TreatedParts> Args)
+    {
+        SelectedTreatedData = Args.Data;
+        selectedTreatedIndex = Args.RowIndex;
+        //if (SelectedTreatedData.Status == "Not Set")
+        //{
+        //    this.circularT1Val = 100;  circularT1Span = "Not Set"; progressColor = "#0d6efd";  circularT2Span = ""; circularT3Span = "";
+        //    this.linearT1Val= 100;this.linearT1.IsIndeterminate = false; this.linearT2.IsIndeterminate = false;
+        //    this.linearT2Val = 0; this.circularT2Val = 0;this.circularT3Val = 0;
+
+        //}
+        //else if(SelectedTreatedData.Status == "Complete") {
+        //    this.linearT1.IsIndeterminate = false;; this.linearT2Val = 100;
+        //    this.circularT2Val = 100; this.circularT3Val = 100; this.linearT2.IsIndeterminate = false;
+        //    this.circularT1Val = 100; this.circularT1.IsIndeterminate = false; circularT1Span = "Complete"; circularT2Span = "✓"; circularT3Span = "✓"; progressColor = "Green";
+        //}
+        //else  {
+        //    this.linearT1.IsIndeterminate = false;; this.linearT2Val = 100; 
+        //    this.circularT1Val = 100; circularT1Span = SelectedTreatedData.Status.ToString();
+        //    this.circularT2Val = 100; this.linearT2.IsIndeterminate = false;   this.circularT3Val = 0;
+        //    circularT1Span = SelectedTreatedData.Status.ToString(); progressColor = "#0d6efd"; circularT2Span = "✓"; circularT3Span = "";
+    //}
+    }
+
+    private void OkClick()
+    {
+        //Delete the record programmatically while clicking OK button.
+        if (DeleteRef == "mainGrid")
+        {
+            Grid.DeleteRecord();
+        }
+        else{ 
+            TreatedParts thispart = SelectedTreatedData;
+            var itemToRemove = treatedParts.Single(r => r.SectionID == thispart.SectionID && r.PartNo == thispart.PartNo && r.Index == thispart.Index);
+            treatedParts.Remove(itemToRemove);
+            treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+            //ShowAddTreatmentDialog();
+
+        }
+        DeleteDialog.Hide();
+    }
+    private void CancelClick()
+    {
+        DeleteDialog.Hide();
+    }
+    //this is for the main delete dialog//////////////////////////caution***
+    private async void MainOkClick()
+    {
+        List<Parts> changedItems = new List<Parts>() { };
+        List<Parts> deletedItems = new List<Parts>() { };
+        List<Parts> addedItems = new List<Parts>() { };
+        List<TreatedParts> TreatedChangedItems = new List<TreatedParts>() { };
+        List<TreatedParts> TreatedDeletedItems = new List<TreatedParts>() { };
+        List<TreatedParts> TreatedAddedItems = new List<TreatedParts>() { };
+        List<Parts> parts1 = parts.ToList();
+        List<TreatedParts> tparts = treatedParts.ToList();
+
+
+        //for parts
+        foreach (Parts part in parts1)
+        {
+            var oldState = oldSessionParts.FirstOrDefault(x => x.SectionID == part.SectionID && x.PartNo == part.PartNo);
+            bool isNewItem = oldState == null;
+            bool hasChanged = !isNewItem &&
+                (part.AssyRef != oldState.AssyRef ||
+                 part.SectionID != oldState.SectionID ||
+                 part.PartNo != oldState.PartNo ||
+                 part.Description != oldState.Description ||
+                 part.Quantity != oldState.Quantity ||
+                 part.Condition != oldState.Condition ||
+                 part.Fixing != oldState.Fixing ||
+                 part.DryFit != oldState.DryFit ||
+                 part.Weight != oldState.Weight ||
+                 part.StorageBox != oldState.StorageBox);
+
+            if (isNewItem)
+            {
+                addedItems.Add(part);
+            }
+            else if (hasChanged)
+            {
+                changedItems.Add(part);
+            }
+        }
+
+        foreach (Parts part in oldSessionParts)
+        {
+            var jj = parts.FirstOrDefault(x => x.SectionID == part.SectionID && x.PartNo == part.PartNo);
+            if (jj == null)
+            {
+                deletedItems.Add(part);
+            }
+        }
+
+        //for treatedParts
+        foreach (TreatedParts part in tparts)
+        {
+            var oldState = oldSessionTreatedParts.FirstOrDefault(x => x.Treatment == part.Treatment && x.PartNo == part.PartNo);
+            bool isNewItem = oldState == null;
+            bool hasChanged = !isNewItem &&
+                (part.Treatment != oldState.Treatment||
+                 part.TreatmentDescription != oldState.TreatmentDescription ||
+                 part.Qty != oldState.Qty||
+                 part.Notes != oldState.Notes ||
+                 part.Status != oldState.Status);
+
+            if (isNewItem)
+            {
+                TreatedAddedItems.Add(part);
+            }
+            else if (hasChanged)
+            {
+                TreatedChangedItems.Add(part);
+            }
+        }
+
+        foreach (TreatedParts part in oldSessionTreatedParts)
+        {
+            var jj = tparts.FirstOrDefault(x => x.Treatment == part.Treatment && x.PartNo == part.PartNo);
+            if (jj == null)
+            {
+                TreatedDeletedItems.Add(part);
+            }
+        }
+        PartsUpdateResult resultedChanges = new PartsUpdateResult();
+
+        resultedChanges.AddedItems = addedItems;
+        resultedChanges.ChangedItems = changedItems;
+        resultedChanges.DeletedItems = deletedItems;
+        resultedChanges.TreatedAddedItems = TreatedAddedItems;
+        resultedChanges.TreatedChangedItems = TreatedChangedItems;
+        resultedChanges.TreatedDeletedItems = TreatedDeletedItems;
+
+        if (addedItems.Count > 0 || changedItems.Count > 0 || deletedItems.Count > 0 || TreatedAddedItems.Count > 0 || TreatedChangedItems.Count > 0 || TreatedDeletedItems.Count > 0)
+        {
+
+
+            //string jsonData = JsonSerializer.Serialize(resultedChanges);
+
+            System.Runtime.Serialization.Json.DataContractJsonSerializer js = new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(PartsUpdateResult));
+            MemoryStream msObj = new MemoryStream();
+            js.WriteObject(msObj, resultedChanges);
+            msObj.Position = 0;
+            StreamReader sr = new StreamReader(msObj);
+            string json = sr.ReadToEnd();
+            // Send a POST request to the API endpoint
+            var response = await Http.PostAsync("https://localhost:7184/api/Parts/update",new StringContent(json, Encoding.UTF8, "application/json"));
+        }
+        changedItems.Clear();
+        deletedItems.Clear();
+        addedItems.Clear();
+        //oldSessionParts.Clear();
+
+        SaveChangesDialog.Hide();
+    }
+    private void MainCancelClick()
+    {
+        SaveChangesDialog.Hide();
+    }
+    private void SaveChangesDialogclicked(){
+        SaveChangesDialog.ShowAsync();
+    }
+    //this function gets triggered when the Add/edit/delete/save operations completes and so we do the user entered/edited data validation here
+    public async Task ActionComplete(ActionEventArgs<Parts> args)
+    {
+        if (args.RequestType == Syncfusion.Blazor.Grids.Action.BeginEdit)
+        {
+            // Triggers once editing operation completes
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Add)
+        {
+            // Triggers once add operation completes
+            if (selectedSessionID == null)
+            {
+
+                this.Grid.CloseEditAsync();
+
+            }
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Cancel)
+        {
+            // Triggers once cancel operation completes
+        }
+
+        //here we check if fisrtly any sections have been seleted has not changed while the user was entering data
+        // then we check if this part is a newly added part or one that was already there and so then this is an edit. we check it with args.action here.
+        // if its a new row then we take it as a whole remembering the validations and input have been done already before this point.
+        // else if its an edit action then we put each variable value one at a time leaving the part number and section ID alone since we supply those before and tehy cannot be edited by the user.
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save)
+        {
+            //await Task.Yield(); 
+
+            if (selectedSessionID == null)
+            {
+                await DialogService.AlertAsync("No Section Selected");
+                this.Grid.EndEdit();
+
+            }
+            else
+            {
+                if (partIsInBreakdown == true)
+                {
+                    partsAddedinBreakdown.Add(args.Data.PartNo);
+                }
+                var strValue = lastStrBoxCreated;
+                Parts thispart = args.Data;
+                if (args.Action == "Edit") {
+
+                    this.parts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo).ToList().ForEach(itemToRemove =>
+                {
+                    //var itemToRemove = parts.Single(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo);
+                    itemToRemove.SectionID = thispart.SectionID;
+                    itemToRemove.AssyRef = thispart.AssyRef;
+                    //itemToRemove.PartNo = thispart.PartNo;
+                    itemToRemove.Description = thispart.Description;
+                    itemToRemove.Quantity = thispart.Quantity;
+                    itemToRemove.Condition = thispart.Condition;
+                    itemToRemove.Fixing = thispart.Fixing;
+                    itemToRemove.DryFit = thispart.DryFit;
+                    itemToRemove.Weight = thispart.Weight;
+                    if (newstrBoxCreated == true)
+                    {
+                        strValue = lastStrBoxCreated;
+                    }
+                    else{
+                        strValue = thispart.StorageBox;
+                    }
+                    itemToRemove.StorageBox = thispart.StorageBox;
+
+                });
+
+                    this.Grid.Refresh();
+                    newstrBoxCreated = false;
+                }
+                else if (args.Action == "Add")
+                {
+                    if (newstrBoxCreated == true){
+                        thispart.StorageBox = lastStrBoxCreated;
+                    }
+                    parts.Add(thispart);
+                    this.Grid.Refresh();
+                    newstrBoxCreated = false;
+                }
+            }
+
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Delete)
+        {
+            // Triggers once delete operation completes
+
+            Parts thispart = args.Data;
+            var itemToRemove = parts.Single(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo);
+            parts.Remove(itemToRemove);
+            this.Grid.Refresh();
+        }
+    }
+
+    //this function gets triggered when the Add/edit/delete/save operations completes and so we do the user entered/edited data validation here for the second dialog storage grid
+    public async Task ActionComplete2(ActionEventArgs<Parts> args)
+    {
+        if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save)
+        {
+            //await Task.Yield(); 
+
+            if (selectedSessionID == null)
+            {
+                await DialogService.AlertAsync("No Section Selected");
+                this.Grid.EndEdit();
+
+            }
+            else
+            {
+                if (partIsInBreakdown == true)
+                {
+                    partsAddedinBreakdown.Add(args.Data.PartNo);
+                }
+                var strValue = lastStrBoxCreated;
+                Parts thispart = args.Data;
+                if (args.Action == "Edit") {
+
+                    var jj = this.parts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo).ToList();
+                    var jj2 = this.partsStorageGrid.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo).ToList();
+                    this.parts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo).ToList().ForEach(x=>x.StorageBox = args.Data.StorageBox);
+                    //this.partsStorageGrid.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo).ToList().ForEach(x=>x.StorageBox = args.Data.StorageBox);
+                    StorageGridDialogFilter(); 
+                    //this.DialogGrid.Refresh();
+                    //this.Grid.Refresh();
+                    //newstrBoxCreated = false;
+                }
+
+            }
+
+        }
+
+    }
+
+    public async Task  treatmentOnActionBegin(ActionEventArgs<TreatedParts> args)
+    {
+
+        if (args.RequestType.ToString() == "Delete" && flag)
+        {
+            if (args.Data.Status != "Not Set")
+            {
+                await DialogService.AlertAsync("Treatment cannot be deleted as it has been actioned");
+                //ShowAddTreatmentDialog();
+            }
+            else
+            {
+                //Cancel default delete action.
+                args.Cancel = true;
+                DeleteRef = "treatmentGrid";
+                DeleteMessage = "You are about to delete a Treatment Record with Assemly Ref -> " + args.Data.AssyRef + " From Section -> " + args.Data.SectionID + ". With Part number -> " + args.Data.PartNo;
+                DeleteDialog.Show();
+            }
+
+        }
+
+        //this add funtions sets up the intial data like for SectionID and part No. which is unique and needs to be generated after checking all the entries 
+        // from this sections part numbers and then adding one to max number found on the list and ending the beignAdd operation. 
+        // also to be checked like always for if any section has been selected or not.
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Add)
+        {
+
+            int number = 0;
+            //List<Parts> newlist = parts.Where(r => r.SectionID == selectedSessionID).ToList();
+            //HashSet<int> sectionPartList = new HashSet<int>{};
+            //foreach(Parts part in newlist){
+            //    sectionPartList.Add(part.PartNo);
+            //}
+            //if (sectionPartList.Count != 0)
+            //{
+            //    number = sectionPartList.Max() + 1;
+            //}
+            int index = treatedParts.FindIndex(item => item.Index == args.Data.Index);
+
+            if (index != -1)
+            {
+                args.Data.NewRecord = true;
+            }
+            else
+            {args.Data.NewRecord = false; }
+            args.Data.SectionID = SelectedData.SectionID;
+            args.Data.AssyRef = SelectedData.AssyRef;
+            args.Data.PartNo = SelectedData.PartNo;
+            args.Data.Description = SelectedData.Description;
+            args.Data.Quantity = SelectedData.Quantity;
+            args.Data.Condition = SelectedData.Condition;
+            args.Data.Status = "Not Set";
+
+
+            if (treatedParts.Count != 0)
+            {
+                number = treatedParts.Count + 1;
+            }
+            else
+            {
+                number = 0;
+            }
+            args.Data.Index = number;
+            //partNoHash.Add(number);
+
+
+        }
+
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save) { }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.BeginEdit) {}
+
+    }
+
+    public int  getQuantity(Parts part){
+
+        return part.Quantity;
+
+    }
+    public async Task treatmentGridRowDragStart(RowDragStartingEventArgs<TreatedParts> args)
+    {
+
+
+    }
+    //=========================================================================================================================/
+    public async Task treatmentGridRowDragEnd(RowDroppedEventArgs<TreatedParts> args)
+    {
+        args.Cancel = true;
+        TreatedParts thispart = args.Data[0];
+        if (thispart.Status == "Not Set")
+        {
+            var proceed = true;
+            var search = this.treatedParts.Where(r => r.SectionID == thispart.SectionID && r.PartNo == thispart.PartNo && r.Index == thispart.Index).ToList();
+            //get a sorted list based on the order of appearence in the grid NOT default order!
+            List<TreatedParts> onScreenTreatedParts = this.treatedGrid.GetCurrentViewRecordsAsync().Result.ToList();
+            HashSet<int> IndexesBelow = new HashSet<int> { };
+            //this.treatedGrid.SelectRowAsync(args.DropIndex);
+            TreatedParts tpartTo = onScreenTreatedParts[args.DropIndex];
+            var onscreenIndex = onScreenTreatedParts.FindIndex(x => x.Index == thispart.Index);
+            for(int i=onscreenIndex; i<= onScreenTreatedParts.Count; i++){
+                if (i > onscreenIndex )
+                {
+                    IndexesBelow.Add(i);
+                }
+            }
+
+            //loop through the on screeen part list and see which indexes are blow th part that we are moving to
+            //foreach (TreatedParts tparTed in onScreenTreatedParts)
+            //{
+            //    if (tparTed.Index > tpartTo.Index)
+            //    {
+            //        IndexesBelow.Add(tparTed.Index);
+            //    }
+            //}
+            //IndexesBelow.OrderBy(i=>i);
+            ////IndexesBelow.Sort();
+            //find the index of row to be moved from the list
+            foreach(int i in IndexesBelow){
+                var item = onScreenTreatedParts[i];
+                if(item.Status == "Not Set"){
+                    proceed = true;
+                }
+                else 
+                {
+                    proceed = false;
+                    break;
+
+                }
+            }
+
+            if (proceed == true)
+            {
+                //this.treatedGrid.SelectRowAsync(args.DropIndex);
+                TreatedParts tpartFrom = args.Data[0];
+                int fromIndex = tpartFrom.Index;
+                //TreatedParts tpartTo = this.treatedGrid.SelectedRecords[0];
+                int toIndex = tpartTo.Index;
+                int index = treatedParts.FindIndex(r => r.SectionID == tpartFrom.SectionID && r.PartNo == tpartFrom.PartNo && r.Index == tpartFrom.Index);
+                int index2 = treatedParts.FindIndex(r => r.SectionID == tpartTo.SectionID && r.PartNo == tpartTo.PartNo && r.Index == tpartTo.Index);
+
+                if (index != -1){
+                    treatedParts[index].Index = toIndex;
+                }
+                if (index2 != -1){
+                    treatedParts[index2].Index = fromIndex;
+                }
+                //var itemToRemove = treatedParts.Single(r => r.SectionID == tpartFrom.SectionID && r.PartNo == tpartFrom.PartNo && r.Index == tpartFrom.Index);
+                //treatedParts.Remove(itemToRemove);
+                //var itemToRemove2 = treatedParts.Single(r => r.SectionID == tpartTo.SectionID && r.PartNo == tpartTo.PartNo && r.Index == tpartTo.Index);
+                //treatedParts.Remove(itemToRemove2);
+
+                //tpartFrom.Index = toIndex;
+                //tpartTo.Index = fromIndex;
+                //treatedParts.Add(tpartTo);
+                //treatedParts.Add(tpartFrom);
+            }
+            else { await DialogService.AlertAsync("Status is Actioned and Cannot be Changed!"); }
+        }
+        else { await DialogService.AlertAsync("Status is Actioned and Cannot be Changed!"); }
+
+        treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+        ShowAddTreatmentDialog();
+
+    }
+    public async Task treatmentGridRowDrag(RowDroppingEventArgs<TreatedParts> args)
+    {
+        TreatedParts tpart = args.Data[0];
+        if(tpart.Status != "Not Set"){
+            args.Cancel = true;
+        }
+        else{
+
+        }
+
+    }
+
+    public async Task TreatedGridActionComplete(ActionEventArgs<TreatedParts> args)
+    {
+
+        if (args.RequestType == Syncfusion.Blazor.Grids.Action.BeginEdit)
+        {
+            // Triggers once editing operation completes
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Add)
+        {
+            args.Cancel = true;
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Cancel)
+        {
+            treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+            ShowAddTreatmentDialog();
+        }
+
+        //here we check if fisrtly any sections have been seleted has not changed while the user was entering data
+        // then we check if this part is a newly added part or one that was already there and so then this is an edit. we check it with args.action here.
+        // if its a new row then we take it as a whole remembering the validations and input have been done already before this point.
+        // else if its an edit action then we put each variable value one at a time leaving the part number and section ID alone since we supply those before and tehy cannot be edited by the user.
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Save)
+        {
+            bool StatusChanged = false;
+            int exist = treatedParts.FindIndex(x => x.Index == args.Data.Index);
+            if (exist >= 0) 
+            {
+                args.Data.NewRecord = false;
+            }
+            //this is the edit component because here we are partially importing the row data so new record bool is our signal here 
+            if ( args.Data.NewRecord == false)
+            {
+                args.Cancel = true;
+                TreatedParts thispart = args.Data;
+                TreatedParts oldPart =  treatedParts.Where(x => x.Index == thispart.Index).ToList()[0];
+                var jj1 = treatedParts.Where(x => x.Index == thispart.Index).ToList()[0];
+                if (oldPart.Status != thispart.Status)
+                {
+                    StatusChanged = true;
+                }
+                if (StatusChanged == true)
+                {
+
+                    var proceed = false;
+                    var search = this.treatedParts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo && r.Index == args.Data.Index).ToList();
+                    var onScreenTreatedParts = this.treatedGrid.GetCurrentViewRecordsAsync().Result.OrderByDescending(o => o.Index).ToList();
+                    List<int> indexTocompare = new List<int> { };
+
+                    if (search != null)
+                    {
+                        foreach (TreatedParts tparTed in onScreenTreatedParts)
+                        {
+                            indexTocompare.Add(tparTed.Index);
+                        }
+                        //indexTocompare.Sort();
+                        var topIndex = indexTocompare.Min();
+                        var bottomIndex = indexTocompare.Max();
+                        var jj = onScreenTreatedParts.Where(x => x.Index == thispart.Index).Last().Status.ToString();
+                        int upperRow = indexTocompare.FirstOrDefault(x => x < thispart.Index);
+                        int lowerRow = indexTocompare.LastOrDefault(x => x > thispart.Index);
+                        //these are the rules for a status change to happen
+
+                        //if its the top row
+                        if (thispart.Index == topIndex) {
+                            var checker = onScreenTreatedParts.Where(x => x.Index == lowerRow && x.Status == "Not Set").ToList();
+                            if (checker != null)
+                            {
+                                if (checker.Count != 0)
+                                {
+                                    proceed = true;
+                                }
+                            }
+                        }
+                        // if its the bottom row
+                        if (thispart.Index == bottomIndex) {
+                            var checker = onScreenTreatedParts.Where(x => x.Index == upperRow && x.Status == "Next").ToList();
+                            if (checker != null)
+                            {
+                                if (checker.Count != 0)
+                                {
+                                    proceed = true;
+                                }
+                            }
+                        }
+                        //if (thispart.Index == onScreenTreatedParts[0].Index) { proceed = true; }
+                        //if (onScreenTreatedParts[upperRow].Status == "Next") { proceed = true; }
+                           //rows in the middle
+                        else{
+                            var checker1 = onScreenTreatedParts.Where(x => x.Index == upperRow && x.Status == "Next").ToList();
+                            var checker2 = onScreenTreatedParts.Where(x => x.Index == lowerRow && x.Status == "Not Set").ToList();
+                            if (checker1 != null && checker2 != null)
+                            {
+                                if (checker1.Count != 0 && checker2.Count != 0)
+                                {
+                                    proceed = true;
+                                }
+                            }
+                        }
+
+                        if (proceed == true)
+                        {
+
+                            //    var jj = this.treatedParts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo && r.Index == args.Data.Index).ToList();
+                            this.treatedParts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo && r.Index == args.Data.Index).ToList().ForEach(itemToRemove =>
+                        {
+
+                            itemToRemove.Treatment = thispart.Treatment;
+                            itemToRemove.Description = thispart.Description;
+                            itemToRemove.Qty = thispart.Qty;
+                            itemToRemove.Notes = thispart.Notes;
+                            //itemToRemove.Supplier = thispart.Supplier;
+                            //itemToRemove.PO = thispart.PO;
+
+                            itemToRemove.Index = thispart.Index;
+                            itemToRemove.Status = thispart.Status;
+                            //itemToRemove.NewRecord = false;
+
+                        });
+                        }
+                        else { await DialogService.AlertAsync("Status is Actioned and Cannot be Changed!"); }
+                    }
+
+                }
+                else{
+                    this.treatedParts.Where(r => r.SectionID == args.Data.SectionID && r.PartNo == args.Data.PartNo && r.Index == args.Data.Index).ToList().ForEach(itemToRemove =>
+                       {
+
+                           itemToRemove.Treatment = thispart.Treatment;
+                           itemToRemove.Description = thispart.Description;
+                           itemToRemove.Qty = thispart.Qty;
+                           itemToRemove.Notes = thispart.Notes;
+                           //itemToRemove.Supplier = thispart.Supplier;
+                           //itemToRemove.PO = thispart.PO;
+
+                           itemToRemove.Index = thispart.Index;
+                           itemToRemove.Status = thispart.Status;
+                           //itemToRemove.NewRecord = false;
+
+                       });
+                }
+                treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+                ShowAddTreatmentDialog();
+            }
+            //this is the actual add component
+            else if (args.Data.NewRecord == true)
+            {
+
+                args.Cancel = true;
+
+                int index = treatedParts.FindIndex(item => item.Index == args.Data.Index);
+
+                if (index != -1)
+                {
+                    treatedParts[index] = args.Data;
+                }
+                else{
+                    args.Data.NewRecord = false;
+                    args.Data.Status = "Not Set";
+                    treatedParts.Add(args.Data);
+                }
+
+                treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+                ShowAddTreatmentDialog();
+
+
+            }
+
+
+        }
+        else if (args.RequestType == Syncfusion.Blazor.Grids.Action.Delete)
+        {
+            args.Cancel = true;
+            treatedPartsLive = treatedParts.Where(r => r.SectionID == SelectedTreatedData.SectionID && r.PartNo == SelectedTreatedData.PartNo).ToList();
+            ShowAddTreatmentDialog();
+        }
+    }
+
+
+    //login feature ready we need to use it
+    // check from the controller and set things accordingly
+    public async Task Login(){
+        if (loginUser != null)
+        {
+            bool LoginCheck = await Http.GetFromJsonAsync<bool>("https://localhost:7184/api/Parts/Login");
+            if (LoginCheck == true)
+            {
+                this.loginDialogVisible = false;
+                _user = loginUser;
+                MainLayerVisible = !MainLayerVisible;
+
+            }
+        }
+        else{
+            await DialogService.AlertAsync("Fields cannot be empty!");
+        }
+    }
+
+    //this funtion gets triggered when any of toolbar items are clicked mainly the custom toolbar items which excluse things Add/edit/delete/save because those have al;ready been handled by onActionBEgin and onActionComplete funtions
+    // here we check which item was clicked then we check if item needed for that action has also been selected or not.
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Text == "Breakdown")
+        {
+            var selected = await this.Grid.GetSelectedRecordsAsync();
+            if (selected.Count == 0)
+            {
+                await DialogService.AlertAsync("No Row Selected");
+            }
+            //if a part has been selected and needs to be broken down then we set that part as the breakdown part so it could be cross-referenced from anywhere
+            //then we set which toolbar buttons remain active, set the status of breadown mode and send that and only that part into the grid.
+            else
+            {
+                partsLive = selected;
+                PartInBreakDown = selected[0];
+                partIsInBreakdown = true;
+                await Grid.EnableToolbarItemsAsync(new List<string>() {"Breakdown"}, false);
+                await Grid.EnableToolbarItemsAsync(new List<string>() { "Confirm Breakdown", "Cancel Breakdown" }, true);
+
+            }
+        }
+        //if the user confirms the breakdown then we delete the row that was in breakdown fromt the main list and set the previously selected section again but with the newly added data/row/rows in place of the old row.
+        if (args.Item.Text == "Confirm Breakdown")
+        {
+            if (partIsInBreakdown == true)
+            {
+                partIsInBreakdown = false;
+                await Grid.EnableToolbarItemsAsync(new List<string>() { "Confirm Breakdown", "Cancel Breakdown" },false);
+                var jj = parts.Single(r => r.SectionID == selectedSessionID && r.PartNo == PartInBreakDown.PartNo);
+                parts.Remove(jj);
+                partsAddedinBreakdown.Clear();
+            }
+            else{await DialogService.AlertAsync("Please Select an Item to Breakdown First");}
+            onTreeNodeSelect();
+        }
+        // if the user cancels the breakdown(like how dare he) then we use the list that made of parts added during the breakdown process and find and delete them from the main list 
+        // then set the selected section again like nothing ever happened.
+        if (args.Item.Text == "Cancel Breakdown")
+        {
+            if (partIsInBreakdown == true)
+            {
+                partIsInBreakdown = false;
+                await Grid.EnableToolbarItemsAsync(new List<string>() { "Confirm Breakdown", "Cancel Breakdown" },false);
+                foreach (int partnum in partsAddedinBreakdown)
+                {
+                    var match = parts.FirstOrDefault(r => r.SectionID == selectedSessionID && r.PartNo == partnum);
+                    //var jj = parts.Single(r => r.SectionID == selectedSessionID && r.PartNo == partnum);
+                    if (match != null)
+                    {
+                        parts.Remove(match);
+                    }
+                }
+
+                partsAddedinBreakdown.Clear();
+            }
+            else { await DialogService.AlertAsync("Please Select an Item to Breakdown First"); }
+            onTreeNodeSelect();
+        }
+        //this is for the storage box list grid
+        if (args.Item.Text == "Storage Boxes")
+        {
+            this.StorageGridVisibility = true;
+
+        }
+        if (args.Item.Text == "Treatment")
+        {
+            var selected = await this.Grid.GetSelectedRecordsAsync();
+            if (selected.Count == 0)
+            {
+                await DialogService.AlertAsync("No Row Selected");
+            }
+            else
+            {
+                foreach(var item in treatedParts)
+                {
+                    BeforeTreatedRecords.Add(new TreatedParts(item));
+                    oldSessionTreatedParts.Add(new TreatedParts(item));
+                }
+                ///BeforeTreatedRecords = this.treatedParts.ToList();
+                var thispart = this.SelectedData;
+                int guid = 0;
+                int count = 0;
+                if (treatedParts.Count != 0)
+                {
+                    count = treatedParts.Where(x => x.SectionID == thispart.SectionID && x.PartNo == thispart.PartNo).Count();
+
+                    if (count > 0)
+                    {
+                        guid = count + 1;
+                    }
+                }
+                List<TreatedParts> tpartList = new List<TreatedParts>{
+                new TreatedParts
+                {
+                    SectionID = thispart.SectionID,
+                    AssyRef = thispart.AssyRef,
+                    PartNo = thispart.PartNo,
+                    Description = thispart.Description,
+                    Quantity = thispart.Quantity,
+                    Condition = thispart.Condition,
+                    Treatment = "",
+                    TreatmentDescription = "",
+                    Notes = "",
+                    Supplier = "",
+                    Qty = 1,
+                    PO = "",
+                    Status = "Not Set",
+                    Index = guid,
+                    NewRecord = true}
+                };
+                var filteredList = treatedParts.Where(x => x.SectionID == thispart.SectionID && x.PartNo == thispart.PartNo).ToList();
+                //tpartList.Add(tpart);
+                //there are no treatments for this part
+                if (filteredList.Count == 0)
+                {
+                    treatedParts.Add(tpartList[0]);
+                    treatedPartsLive = treatedParts.Where(x => x.SectionID == thispart.SectionID && x.PartNo == thispart.PartNo).ToList();
+
+                }
+                //there are treatments for this part
+                else
+                {
+                    treatedPartsLive = treatedParts.Where(x => x.SectionID == thispart.SectionID && x.PartNo == thispart.PartNo).ToList();
+                }
+                ShowAddTreatmentDialog();
+            }
+        }
+    }
+
+    public async Task treatmentToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Text == "Confirm Changes")
+        {
+            BeforeTreatedRecords.Clear();
+            treatmentDLG = false;
+        }
+
+        if (args.Item.Text == "Revert Changes")
+        {
+
+            treatedParts = BeforeTreatedRecords.ToList();
+            BeforeTreatedRecords.Clear();
+            TreamentDlgClosed();
+            
+        }
+    }
+
+    public async Task TreamentDlgOpened(){
+
+        var jj = treatedGrid.GetCurrentViewRecordsAsync();
+        if (jj != null)
+        {
+
+            if (jj.Result.Count == 1)
+            {
+                if (jj.Result[0].NewRecord == true)
+
+                {
+                    var index = 0;
+                    index = jj.Result[0].Index;
+                    await treatedGrid.SelectRow(index);
+                    await treatedGrid.StartEdit();
+                }
+            }
+        }
+    }
+
+    public async Task TreamentDlgClosed(){
+
+
+        treatedPartsLive = treatedParts.Where(x => x.SectionID == SelectedTreatedData.SectionID && x.PartNo == SelectedTreatedData.PartNo).ToList();
+        ShowAddTreatmentDialog();
+        treatmentDLG = false;
+    }
+
+    //future use
+    public void QueryCellInfoHandler(QueryCellInfoEventArgs<Parts> args)
+
+    {
+
+
+        //if (args.Column.Type == ColumnType.CheckBox && args.Data.CustomerID == "ALFKI")
+
+        //{
+
+        //    args.Cell.AddClass(new string[] { "e-disabled" }); //disabled selection for particular rows
+
+        //}
+
+    }
+    //when the user wants to see the list of parts under the same storagebox we check if the user has selected anything from the dropdown list or not. 
+    public async Task StorageGridDialogFilter()
+    {
+        var selectedBox = this.StorageGridDropDown.Value;
+        if (selectedBox == null) { await DialogService.AlertAsync("Please Select an Item from the list"); }
+        else
+        {
+            partsStorageGrid = parts.Where(x => x.StorageBox == selectedBox).ToList();
+        }
+
+    }
+    public async Task StorageGridDialogClosed()
+    {
+        if (partsStorageGrid != null)
+        {
+            partsStorageGrid.Clear();
+        }
+    }
+    //following are experimental which wil be discussed later
+    public async Task progressBarDialog0(Object args){
+        this.circular1Val = 80; this.circular1.IsIndeterminate = true; circular1Span = "Operation Started"; progressColor = "#0d6efd";
+        this.linear1Val = 0; this.linear2Val = 0; this.linear3Val = 0; this.linear4Val = 0; this.circular2Val = 0; this.circular3Val = 0;
+    }
+    public async Task progressBarDialog1(Object args){this.linear1Val = 100;}
+    public async Task progressBarDialog2(Object args) { this.circular2Val = 30; this.circular2.IsIndeterminate = true; circular2Span = "Part under Processing.."; }
+    public async Task progressBarDialog3(Object args){this.linear3Val = 100;}
+    public async Task progressBarDialog4(Object args){this.circular3Val = 100;}
+    public async Task progressBarDialog5(Object args){ this.linear4Val = 100;}
+    public async Task progressBarDialog6(Object args){this.circular2Val = 100; this.circular2.IsIndeterminate = false; circular2Span = "Complete✓";}
+    public async Task progressBarDialog7(Object args){this.linear2Val = 100;}
+    public async Task progressBarDialog8(Object args) { this.circular1Val = 100; this.circular1.IsIndeterminate = false; circular1Span = "Complete✓"; progressColor = "Green"; }
+
+    // future use
+    //to log the user out
+    public async Task LogOut1(){
+        MainLayerVisible = !MainLayerVisible;
+        this.loginDialogVisible = true;
+
+
+    }
+
+
+    //-----------------------------------------------------------------------------------------------
+    ///----------------------------------------------------------------------------------------------
+    //private Viewer View3D1 = null!;
+    //private Scene scene = new Scene();
+    //private Guid loadedObjectGuid = Guid.NewGuid();
+    //private string msg = string.Empty;
+    //Camera camera = new PerspectiveCamera(45, 0.1, 1000);
+    //public static Vector3 v1 =  new Vector3(ToSingle(-6.174676974742969), ToSingle(50.21980310595192), ToSingle(224.13209364477967));
+    //public static float ToSingle(double value)
+    //{
+    //    return (float)value;
+    //}
+    //public async Task LogOut()
+    //{
+    //    await  View3D1.ShowCurrentCameraInfo();
+    //    var y2 = ToSingle(158.46823);
+    //    var z2 = ToSingle(247.75943);
+    //    if (selectedSessionID == "BOOT") { await View3D1.SetCameraPositionAsync(new Vector3(0, y2, z2), new Vector3(ToSingle(-0.566163468218882), 0, 0)); }
+    //    else
+    //    {
+    //        var x = ToSingle(0);
+    //        var y = ToSingle(158.46822639474584);
+    //        var z = ToSingle(247.7594262517787);
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, y, z), new Vector3(ToSingle(-0.566163468218882), 0, 0));
+    //    }
+
+        
+        
+
+    //}
+    
+
+
+    //    public void Dispose()
+    //    {
+    //        View3D1.ObjectLoaded -= OnObjectLoaded;
+    //        View3D1.JsModuleLoaded -= OnJsModuleLoaded;
+    //    }
+
+    //    protected override Task OnInitializedAsync()
+    //    {
+    //        AddLights();
+    //        return base.OnInitializedAsync();
+    //    }
+
+    //    private void AddLights()
+    //    {
+    //        scene.Add(new AmbientLight());
+    //        scene.Add(new PointLight()
+    //        {
+    //            Intensity = 0.5f,
+    //            Position = new Vector3(100, 200, 100)
+    //        });
+    //        scene.Add(new PointLight()
+    //        {
+    //            Intensity = 1f,
+    //            Position = new Vector3(5, 5, 5)
+    //        });
+    //    }
+
+    //    protected override Task OnAfterRenderAsync(bool firstRender)
+    //    {
+    //        if (firstRender)
+    //        {
+    //            // subscribe events only once
+    //            View3D1.ObjectLoaded += OnObjectLoaded;
+    //            View3D1.JsModuleLoaded += OnJsModuleLoaded;
+    //        }
+
+    //        return base.OnAfterRenderAsync(firstRender);
+    //    }
+
+    //    private async Task OnJsModuleLoaded()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Gltf,
+    //            FileURL = "/assets/old_rusty_car.glb",
+                
+                
+    //        };
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+    //    await View3D1.SetCameraPositionAsync(new Vector3(0, 0, 0), new Vector3(0, 0, 0));
+    //    }
+
+    //    private async Task OnLoadObjButtonClick()
+    //    {
+    //        // if you need to control the loaded object uuid, generate it here.
+    //        loadedObjectGuid = Guid.NewGuid();
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Obj,//choose appropriate format
+    //            FileURL = "https://threejs.org/examples/models/obj/male02/male02.obj",// link to your model file
+    //            TextureURL = "https://threejs.org/examples/textures/uv_grid_opengl.jpg", // link to the texture or skip this,
+    //            Uuid = loadedObjectGuid //// skip this, or set null if you don't care the uuid of loaded mesh or group
+    //        };
+    //        await View3D1.Import3DModelAsync(settings);
+
+    //        // set camera position to view your loaded model
+    //        await View3D1.SetCameraPositionAsync(
+    //            new Vector3(0, 100, 250),// camera position
+    //            new Vector3(0, 50, 0));// optional camera target
+    //    }
+
+    //    private async Task OnLoadObjNoTexturesButtonClick()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Obj,
+    //            FileURL = "https://threejs.org/examples/models/obj/male02/male02.obj",
+    //        };
+    //        // Also you can get the uuid of object to be imported before its loaded completely
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, 100, 250), new Vector3(0, 50, 0));
+    //    }
+
+    //    private async Task OnLoadColladaButtonClick()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Collada,
+    //            FileURL = "https://threejs.org/examples/models/collada/elf/elf.dae",
+    //        };
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, 5, 10), new Vector3(0, 3, 0));
+    //    }
+
+    //    private async Task OnLoadFbxButtonClick()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Fbx,
+    //            FileURL = "https://threejs.org/examples/models/fbx/Samba%20Dancing.fbx",
+    //        };
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, 100, 250), new Vector3(0, 50, 0));
+    //    }
+
+    //    private async Task OnLoadGltfButtonClick()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Gltf,
+    //            FileURL = "https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf",
+    //        };
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, 1, 5), new Vector3(0, 0.5f, 0));
+    //    }
+    //    private async Task OnLoadStlButtonClick()
+    //    {
+    //        var settings = new ImportSettings
+    //        {
+    //            Format = Import3DFormats.Stl,
+    //            FileURL = "https://threejs.org/examples/models/stl/ascii/slotted_disk.stl",
+    //        };
+    //        loadedObjectGuid = await View3D1.Import3DModelAsync(settings);
+    //        await View3D1.SetCameraPositionAsync(new Vector3(0, 3, 3), new Vector3(0, 1, 0));
+    //    }
+
+    //    private Task OnObjectLoaded(Object3DArgs e)
+    //    {
+    //        // After object is loaded to component scene, you can locate it's C# clone in the scene.Children
+    //        // At the moment, only  Object3D.Uuid and Object3D.Type properties are syncronized.
+    //        foreach (var item in scene.Children)
+    //        {
+    //            if (item.Uuid == e.UUID)
+    //            {
+    //                this.msg = $"loaded object with id = {e.UUID} and type {item.Type}. Initial guid was {loadedObjectGuid}";
+    //                StateHasChanged();
+    //                break;
+    //            }
+    //        }
+    //        return Task.CompletedTask;
+    //    }
+
+    //    // this one clears scene completely. it removes all items: lights, helpers, meshes, etc.
+    //    private async Task OnClearAllClick()
+    //    {
+    //        await View3D1.ClearSceneAsync();
+    //        AddLights();
+    //        await View3D1.UpdateScene();
+    //    }
+
+    //    // this one removes last item in scene.Children collection.
+    //    // notice, that first two items are lights
+    //    private async Task OnDeleteLast()
+    //    {
+    //        if (scene.Children.Count > 0)
+    //        {
+    //            var last = scene.Children.Last();
+    //            // removes item by its unique identifier
+    //            await View3D1.RemoveByUuidAsync(last.Uuid);
+    //        }
+    //    }
+    
+    
+
+}
+
+    <style>
+    .tree {
+        min-width: 230px;
+        max-width: 500px;
+        border: 1px solid #dddddd;
+        border-radius: 3px;
+        max-height: 800px;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        margin-left: 0px;
+        float: left;
+        margin-top: 135px;
+    }
+
+    .grid {
+        margin-top: 50px;
+        max-width: 3000px;
+        border: 1px solid #dddddd;
+        border-top-left-radius: 65px;
+        border-top-right-radius: 43px;
+        max-height: 800px;
+        overflow: hidden;
+        margin-left: 20px;
+        margin-right: 20px;
+        float: right;
+    }
+
+    .container1 > div {
+        display: inline-block;
+        border: solid 1px #000;
+    }
+
+    .container1 {
+        border: solid 1px #000;
+        text-align: center;
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+    }
+
+    .validation-message {
+        color: red;
+        padding: 5px 0px 0px;
+    }
+
+    .e-grid .e-headercell {
+        background: #ffb166;
+    }
+
+    .e-grid .e-gridcontent {
+        background: #ffe6cd;
+    }
+
+    .e-dlg-header-content {
+        background: #ffb166;
+    }
+
+    .e-input-group.e-control-wrapper.text-custom2 {
+        height: 60px;
+        color: #000000;
+        font-size: xx-large;
+        border: 4px;
+        border-color: #ffffff;
+        border-radius: 4px;
+        align-items: center;
+    }
+
+    .e-btn.e-primary.e-custombtn {
+        width: 100%;
+        margin: auto;
+    }
+
+    .e-dialog .e-dlg-content {
+        padding: 23px;
+        background-color: gainsboro;
+    }
+
+    .row-in-breakdown {
+        background-color: lightgray;
+    }
+
+    .e-overlay {
+        opacity: 0.3;
+/*        // Set dialog modal overlay background-color: #fff;
+        // Customize dialog modal overlay background color 
+        opacity: 0.3;
+        // To blur the background color filter: alpha(opacity=30);*/
+    }
+</style>
